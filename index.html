@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Super Clawd Boy</title>
+    <style>
+      :root {
+        --clawd: #d97757;
+        --ink: #111;
+        --red: #c8102e;
+        --outline: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        color: #fff;
+        font-family: 'Press Start 2P', monospace;
+        user-select: none;
+        -webkit-font-smoothing: none;
+      }
+      #app { display: flex; justify-content: center; align-items: center; height: 100%; }
+      #app canvas { display: block; image-rendering: pixelated; transition: filter 0.15s; }
+      body.thinking #app canvas { filter: saturate(0.35) brightness(0.8) hue-rotate(15deg); }
+      .hidden { display: none !important; }
+
+      #vignette {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, transparent 45%, rgba(40, 110, 255, 0.55) 100%);
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      body.thinking #vignette { opacity: 1; }
+
+      /* White box with a hard black border: SMB's sign/panel look. */
+      .panel { background: #fff; color: var(--ink); border: 3px solid #000; border-radius: 4px; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35); }
+
+      /* Timer sign hanging from the top of the screen by two ropes. */
+      #sign {
+        position: fixed;
+        top: 0;
+        left: 14vw;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        pointer-events: none;
+      }
+      #sign svg { display: block; }
+      #timer { margin-top: -2px; padding: 6px 12px 5px; font-size: 16px; color: var(--red); min-width: 108px; text-align: center; }
+
+      #banner {
+        position: fixed;
+        inset: 0 0 auto 0;
+        z-index: 2;
+        height: 74px;
+        padding-top: 22px;
+        background: #000;
+        text-align: center;
+        font-size: 22px;
+        letter-spacing: 2px;
+        pointer-events: none;
+        animation: banner 3s forwards;
+      }
+      @keyframes banner {
+        0% { transform: translateY(-100%); }
+        8%, 80% { transform: translateY(0); }
+        100% { transform: translateY(-110%); }
+      }
+
+      #think {
+        position: fixed;
+        left: 70px;
+        bottom: 16px;
+        padding: 8px 10px;
+        font-size: 9px;
+      }
+      #think .bar { width: 200px; height: 10px; margin-top: 6px; border: 2px solid #000; }
+      #think-fill { height: 100%; width: 100%; background: #4a8dff; }
+      body.thinking #think span::after { content: '...'; }
+
+      #hint {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        max-width: min(860px, 92vw);
+        padding: 10px 14px;
+        font-size: 10px;
+        line-height: 1.7;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      #caption {
+        position: fixed;
+        left: 50%;
+        top: 22px;
+        transform: translateX(-50%);
+        width: min(820px, 92vw);
+        padding: 14px 18px;
+        font-size: 13px;
+        line-height: 1.8;
+        text-align: center;
+        pointer-events: none;
+      }
+      #skip { position: fixed; right: 16px; bottom: 14px; font-size: 9px; text-shadow: var(--outline); pointer-events: none; }
+
+      #card {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: 20vh;
+        padding: 26px 6vw 34px;
+        background: #000;
+        text-align: center;
+        animation: slam 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+        pointer-events: none;
+      }
+      #card-title { font-size: clamp(22px, 4.5vw, 52px); line-height: 1.2; }
+      #card-sub { margin-top: 14px; font-size: clamp(9px, 1.3vw, 14px); color: #bbb; line-height: 1.6; }
+      #card.boss #card-title { color: #fbbc05; text-shadow: 4px 4px 0 #ea4335; }
+      @keyframes slam {
+        from { transform: translateX(-110%); }
+        to { transform: translateX(0); }
+      }
+
+      #title {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 7vh;
+        text-align: center;
+      }
+      #title h1 {
+        margin: 0;
+        font-size: clamp(26px, 5.2vw, 72px);
+        line-height: 1.15;
+        font-weight: normal;
+        text-shadow: var(--outline), 5px 6px 0 #000;
+      }
+      #title h1 span { color: var(--clawd); }
+      #title .tag { margin: 18px 0 0; max-width: 90vw; font-size: 11px; line-height: 1.6; text-shadow: var(--outline); }
+      #title .menu { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 6vh; }
+      #title .item { min-width: 230px; font: inherit; font-size: 10px; padding: 9px 12px; cursor: pointer; }
+      #title .item.sel { background: var(--clawd); }
+      #title #play { margin-bottom: 10px; padding: 16px 28px 12px; font-size: clamp(14px, 2vw, 22px); }
+      #title #play.sel { color: #fff; text-shadow: 2px 2px 0 #000; animation: pulse 0.9s ease-in-out infinite; }
+      #play .arrow { display: inline-block; animation: nudge 0.5s steps(2) infinite; }
+      #play small { display: block; margin-top: 10px; font-size: 8px; color: var(--ink); text-shadow: none; }
+      @keyframes pulse { 50% { transform: scale(1.06); } }
+      @keyframes nudge { 50% { transform: translateX(5px); } }
+      #title .footer {
+        position: fixed;
+        bottom: 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        max-width: 94vw;
+        line-height: 1.6;
+        text-shadow: var(--outline);
+      }
+      #title .byline { font-size: clamp(10px, 1.3vw, 14px); }
+      #title .controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 8px 20px;
+        font-size: clamp(9px, 1vw, 11px);
+      }
+      #title .controls > span { display: inline-flex; align-items: center; gap: 4px; }
+      #title kbd {
+        display: inline-grid;
+        place-items: center;
+        min-width: 2.3em;
+        height: 2.3em;
+        padding: 0 0.5em;
+        margin-right: 2px;
+        font: inherit;
+        font-size: 0.9em;
+        color: var(--ink);
+        background: #fff;
+        border: 2px solid #000;
+        border-radius: 3px;
+        box-shadow: 0 3px 0 #000;
+        text-shadow: none;
+      }
+      #title kbd svg { width: 0.9em; height: 0.9em; fill: var(--ink); }
+      #title .controls .pad {
+        width: 2.6em;
+        height: 1.7em;
+        margin-right: 4px;
+        filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
+      }
+
+      #credits {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      #credits > .panel { width: min(520px, 92vw); max-height: 90vh; overflow-y: auto; padding: 18px 20px 14px; text-align: center; }
+      #credits h2 { margin: 0 0 14px; font-size: 16px; font-weight: normal; }
+      #credits h3 { margin: 14px 0 6px; font-size: 8px; font-weight: normal; color: var(--red); }
+      #credits p { margin: 0; font-size: 10px; line-height: 1.6; }
+      #credits ul { margin: 8px auto 0; padding: 0; max-width: 420px; list-style: none; font-size: 7px; line-height: 1.9; color: #555; }
+      #credits li { display: flex; justify-content: space-between; gap: 12px; }
+      #credits li b { font-weight: normal; color: var(--ink); }
+      #credits .row { display: block; width: 100%; margin: 16px 0 0; font: inherit; font-size: 11px; padding: 10px; cursor: pointer; background: var(--clawd); }
+
+      #levels {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      #levels > .panel { width: min(600px, 92vw); padding: 18px 20px 14px; text-align: center; }
+      #levels h2 { margin: 0 0 16px; font-size: 16px; font-weight: normal; }
+      #level-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 60vh; overflow-y: auto; padding: 2px 4px 4px 2px; }
+      #level-list button {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font: inherit;
+        font-size: 9px;
+        line-height: 1.4;
+        padding: 10px;
+        text-align: left;
+        cursor: pointer;
+      }
+      #level-list button.sel { background: var(--clawd); }
+      #level-list button b { font-weight: normal; color: var(--red); white-space: nowrap; }
+      #level-list button.locked { background: #ddd; color: #888; cursor: default; }
+      #level-list button.locked.sel { background: #bbb; }
+      #levels small { display: block; margin-top: 12px; font-size: 7px; color: #777; line-height: 1.6; }
+
+      /* Replay: camcorder frame, results sign, SMB-style button prompts. */
+      #replay { position: fixed; inset: 0; pointer-events: none; }
+      #replay .corner { position: absolute; width: 70px; height: 70px; border: 0 solid #fff; filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.4)); }
+      #replay .tl { top: 14px; left: 14px; border-width: 5px 0 0 5px; }
+      #replay .tr { top: 14px; right: 14px; border-width: 5px 5px 0 0; }
+      #replay .bl { bottom: 14px; left: 14px; border-width: 0 0 5px 5px; }
+      #replay .br { bottom: 14px; right: 14px; border-width: 0 5px 5px 0; }
+      #replay .rec { position: absolute; top: 34px; left: 38px; font-size: 14px; text-shadow: var(--outline); }
+      #results { position: absolute; top: 30px; right: 38px; width: min(360px, 60vw); padding: 14px 16px; font-size: 10px; }
+      #results h2 { margin: 0 0 10px; font-size: 13px; font-weight: normal; }
+      #results .grade { position: absolute; top: 10px; right: 14px; font-size: 26px; color: #999; }
+      #results .grade.aplus { color: var(--red); }
+      #results .row { display: flex; gap: 8px; align-items: baseline; margin: 7px 0; }
+      #results .row span { flex: 1; }
+      #results .row b { font-weight: normal; color: var(--red); }
+      #results .row i { font-style: normal; font-size: 8px; background: var(--red); color: #fff; padding: 2px 4px; }
+      #results .rival { color: #777; }
+      #results .rival b { color: #777; }
+      #results .fine { margin: 6px 0 0; font-size: 7px; color: #888; }
+      #replay .prompts {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 30px;
+        display: flex;
+        justify-content: center;
+        gap: 4vw;
+        font-size: 12px;
+        line-height: 1.3;
+        text-shadow: var(--outline);
+      }
+      #replay .prompts > div { display: flex; align-items: center; gap: 10px; }
+      #replay .btn {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 3px solid #000;
+        font-size: 13px;
+        font-style: normal;
+      }
+      #replay .btn.a { background: #3fbf3f; }
+      #replay .btn.b { background: #e03c3c; }
+      #replay .btn.y { background: #f0c419; }
+      #replay small { display: block; font-size: 7px; color: #ddd; }
+
+      #music-toggle {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 5;
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        cursor: pointer;
+      }
+      #music-toggle:hover { background: var(--clawd); }
+      #music-toggle .slash { display: none; }
+      #music-toggle.off { background: #bbb; }
+      #music-toggle.off .slash { display: inline; }
+      /* Sit inside the replay frame's corner bracket rather than on top of it. */
+      #replay:not(.hidden) ~ #music-toggle { left: 30px; bottom: 30px; }
+
+      #options {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      #options .panel { width: min(380px, 90vw); padding: 18px 20px 16px; text-align: center; }
+      #options h2 { margin: 0 0 16px; font-size: 16px; font-weight: normal; }
+      #options .row { display: block; width: 100%; margin: 8px 0; font: inherit; font-size: 11px; padding: 10px; cursor: pointer; text-align: center; }
+      #options .row:hover, #options .row.sel { background: var(--clawd); }
+      #options .slider b { font-weight: normal; }
+      #options input[type='range'] {
+        display: block;
+        width: 100%;
+        height: 12px;
+        margin: 10px 0 2px;
+        appearance: none;
+        background: #fff;
+        border: 2px solid #000;
+        cursor: pointer;
+      }
+      #options input[type='range']::-webkit-slider-thumb { appearance: none; width: 14px; height: 18px; background: #000; border: 0; }
+      #options input[type='range']::-moz-range-thumb { width: 14px; height: 18px; background: #000; border: 0; border-radius: 0; }
+      #options small { display: block; margin-top: 10px; font-size: 7px; color: #777; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="vignette"></div>
+
+    <div id="hud" class="hidden">
+      <div id="sign">
+        <svg width="150" height="30" viewBox="0 0 150 30">
+          <rect x="0" y="0" width="150" height="4" fill="#000" />
+          <path d="M8 2 L42 30 M142 2 L108 30" stroke="#000" stroke-width="4" />
+        </svg>
+        <div id="timer" class="panel">0.00</div>
+      </div>
+    </div>
+    <div id="banner" class="hidden"><span id="level-name"></span></div>
+    <div id="think" class="panel hidden">
+      <span>EXTENDED THINKING [C]</span>
+      <div class="bar"><div id="think-fill"></div></div>
+    </div>
+    <div id="hint" class="panel hidden"></div>
+
+    <div id="caption" class="panel hidden"></div>
+    <div id="card" class="hidden"><div id="card-title"></div><div id="card-sub"></div></div>
+    <div id="skip" class="hidden">ENTER to skip</div>
+
+    <div id="title" class="hidden">
+      <h1>SUPER <span>CLAWD</span> BOY</h1>
+      <p class="tag">The AI race. Now with more jumping and fewer press releases.</p>
+      <div class="menu">
+        <button id="play" class="panel item"><span class="arrow">&#9654;</span> PRESS ENTER<small id="play-sub"></small></button>
+        <button id="levels-open" class="panel item">LEVEL SELECT [L]</button>
+        <button id="options-open" class="panel item">OPTIONS [O]</button>
+        <button id="credits-open" class="panel item">CREDITS</button>
+      </div>
+      <div class="footer">
+        <div class="byline">Game created by: Conall Ó Gribín, with Claude Opus 5.5</div>
+        <div class="controls">
+          <span>
+            <kbd aria-label="Left arrow"><svg viewBox="0 0 6 6" shape-rendering="crispEdges"><path d="M4 0h1v6h-1v-1h-1v-1h-1v-2h1v-1h1z" /></svg></kbd>
+            <kbd aria-label="Right arrow"><svg viewBox="0 0 6 6" shape-rendering="crispEdges"><path d="M1 0h1v1h1v1h1v2h-1v1h-1v1h-1z" /></svg></kbd>
+            MOVE
+          </span>
+          <span><kbd>SPACE</kbd><kbd>Z</kbd> JUMP</span>
+          <span><kbd>SHIFT</kbd><kbd>X</kbd> RUN</span>
+          <span><kbd>C</kbd> THINK</span>
+          <span><kbd>R</kbd> RESTART</span>
+          <span><kbd>ESC</kbd> MENU</span>
+          <span>
+            <svg class="pad" viewBox="0 0 14 9" shape-rendering="crispEdges" aria-label="Gamepad">
+              <path fill="#fff" d="M2 1h10v1h1v1h1v5h-1v1h-3v-1h-1v-1h-4v1h-1v1h-3v-1h-1v-5h1v-1h1z" />
+              <path fill="#111" d="M3 3h1v1h1v1h-1v1h-1v-1h-1v-1h1zM10 3h1v1h-1zM11 4h1v1h-1zM9 4h1v1h-1zM10 5h1v1h-1z" />
+            </svg>
+            OK
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div id="replay" class="hidden">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div class="rec">&#9654;REPLAY MODE</div>
+      <div id="results" class="panel"></div>
+      <div class="prompts">
+        <div><i class="btn a">A</i><span>NEXT<br />LEVEL<small>ENTER</small></span></div>
+        <div><i class="btn b">B</i><span>BACK<br />TO MENU<small>ESC</small></span></div>
+        <div><i class="btn y">Y</i><span>REPLAY<br />LEVEL<small>R</small></span></div>
+      </div>
+    </div>
+
+    <div id="levels" class="hidden">
+      <div class="panel">
+        <h2>LEVEL SELECT</h2>
+        <div id="level-list"></div>
+        <small>ARROWS select · ENTER play · ESC back</small>
+      </div>
+    </div>
+
+    <div id="credits" class="hidden">
+      <div class="panel">
+        <h2>CREDITS</h2>
+        <h3>GAME CREATED BY</h3>
+        <p>Conall Ó Gribín</p>
+        <h3>BUILT WITH</h3>
+        <p>Claude Opus 5.5 (Anthropic)</p>
+        <h3>MUSIC</h3>
+        <p>Kevin MacLeod (incompetech.com)<br />Licensed under Creative Commons: By Attribution 4.0</p>
+        <ul>
+          <li><span>Title, prologue, epilogue</span><b>Exhilarate</b></li>
+          <li><span>1-1 Hello, World</span><b>Rocket Power</b></li>
+          <li><span>1-2 Wall of Text</span><b>Ready Aim Fire</b></li>
+          <li><span>1-3 Gradient Descent</span><b>In a Heartbeat</b></li>
+          <li><span>1-4 Hallucination</span><b>Dream Culture</b></li>
+          <li><span>1-5 Human Feedback</span><b>Pinball Spring 160</b></li>
+          <li><span>1-6 Prompt Injection</span><b>Overworld</b></li>
+          <li><span>1-7 Rate Limited</span><b>Blown Away</b></li>
+          <li><span>1-8 Data Pipeline</span><b>Cyborg Ninja</b></li>
+          <li><span>The Gemini Twins</span><b>Summon the Rawk</b></li>
+        </ul>
+        <h3>SOUND</h3>
+        <p>"Evil Cyber Laugh" by AppPro (CC0)</p>
+        <h3>FONT</h3>
+        <p>Press Start 2P by CodeMan38 (SIL Open Font License)</p>
+        <button id="credits-back" class="panel row">BACK</button>
+      </div>
+    </div>
+
+    <div id="options" class="hidden">
+      <div class="panel">
+        <h2>OPTIONS</h2>
+        <button id="opt-music" class="panel row"></button>
+        <label class="panel row slider">MUSIC VOLUME <b id="opt-music-vol-val"></b><input id="opt-music-vol" type="range" min="0" max="100" step="5" /></label>
+        <label class="panel row slider">SOUND FX VOLUME <b id="opt-sfx-vol-val"></b><input id="opt-sfx-vol" type="range" min="0" max="100" step="5" /></label>
+        <button id="opt-back" class="panel row">BACK</button>
+        <small>UP/DOWN select · LEFT/RIGHT adjust · ENTER toggle · ESC close · M toggles music anywhere</small>      </div>
+    </div>
+
+    <button id="music-toggle" class="panel" title="Music on/off (M)" aria-label="Music">
+      <svg width="24" height="24" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true">
+        <path fill="#111" d="M4 1h7v2H4zM4 3h1v5H4zM1 8h4v3H1zM10 3h1v4h-1zM7 7h4v3H7z" />
+        <path class="slash" stroke="#c8102e" stroke-width="1.6" d="M1 1L11 11" />
+      </svg>
+    </button>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
